@@ -1,9 +1,9 @@
-name: Master - Build, Tag, Push, and Release
+name: Main - Build, Tag, Push, and Release
 
 on:
   push:
     branches:
-      - 'master'
+      - 'main'
 
 jobs:
   get-base-ref:
@@ -21,7 +21,7 @@ jobs:
         run: echo "base_ref=$(git rev-parse HEAD~1)" >> $GITHUB_OUTPUT
 
   migration-check:
-    name: Flyway Migration Check on Master
+    name: Flyway Migration Check on Main
     needs: [ get-base-ref ]
     uses: ./.github/workflows/migrations-check.yml
     with:
@@ -180,13 +180,13 @@ jobs:
       - name: Set Up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Retrieve Latest Master Version Tag
+      - name: Retrieve Latest Main Version Tag
         id: get_version
         run: |
           latest_tag=$(git tag --list "v*" --sort=-v:refname | head -n 1)
           latest_tag=${latest_tag:-"v0.0.0"}
           echo "latest_tag=$latest_tag" >> $GITHUB_ENV
-          echo "Latest master tag: $latest_tag"
+          echo "Latest Main tag: $latest_tag"
 
       - name: Determine Version Bump
         id: determine_bump
@@ -198,7 +198,7 @@ jobs:
           # Extract PR number from merge commit
           pr_number=$(git log -1 --pretty=%B | grep -oE 'Merge pull request #[0-9]+' | grep -oE '[0-9]+') || true
           if [ -z "$pr_number" ]; then
-            pr_number=$(gh pr list --state merged --base master --limit 1 --json number --jq '.[0].number')
+            pr_number=$(gh pr list --state merged --base main --limit 1 --json number --jq '.[0].number')
           fi
           echo "PR number: $pr_number"
 
