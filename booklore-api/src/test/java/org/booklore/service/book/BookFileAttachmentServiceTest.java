@@ -34,15 +34,24 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class BookFileAttachmentServiceTest {
 
-    @Mock private BookRepository bookRepository;
-    @Mock private UserBookProgressRepository userBookProgressRepository;
-    @Mock private AuthenticationService authenticationService;
-    @Mock private ReadingProgressService readingProgressService;
-    @Mock private MonitoringRegistrationService monitoringRegistrationService;
-    @Mock private FileMoveHelper fileMoveHelper;
-    @Mock private BookMapper bookMapper;
-    @Mock private BookService bookService;
-    @Mock private EntityManager entityManager;
+    @Mock
+    private BookRepository bookRepository;
+    @Mock
+    private UserBookProgressRepository userBookProgressRepository;
+    @Mock
+    private AuthenticationService authenticationService;
+    @Mock
+    private ReadingProgressService readingProgressService;
+    @Mock
+    private MonitoringRegistrationService monitoringRegistrationService;
+    @Mock
+    private FileMoveHelper fileMoveHelper;
+    @Mock
+    private BookMapper bookMapper;
+    @Mock
+    private BookService bookService;
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private BookFileAttachmentService service;
@@ -83,7 +92,7 @@ class BookFileAttachmentServiceTest {
     }
 
     private BookFileEntity createBookFile(Long id, BookEntity book, String fileName, String subPath,
-                                          boolean isBookFormat, boolean folderBased) throws IOException {
+            boolean isBookFormat, boolean folderBased) throws IOException {
         BookFileEntity file = BookFileEntity.builder()
                 .id(id)
                 .book(book)
@@ -102,7 +111,7 @@ class BookFileAttachmentServiceTest {
     }
 
     private BookFileEntity createBookFileNoPhysicalFile(Long id, BookEntity book, String fileName,
-                                                        String subPath, boolean isBookFormat) {
+            String subPath, boolean isBookFormat) {
         BookFileEntity file = BookFileEntity.builder()
                 .id(id)
                 .book(book)
@@ -158,6 +167,22 @@ class BookFileAttachmentServiceTest {
             APIException ex = assertThrows(APIException.class,
                     () -> service.attachBookFiles(1L, List.of(2L), false));
             assertTrue(ex.getMessage().contains("no primary file"));
+        }
+
+        @Test
+        @DisplayName("Does not throw when target book has no primary file but is physical")
+        void attachBookFiles_targetPhysicalNoPrimaryFile_noThrow() {
+            BookEntity target = createBook(1L);
+            target.setIsPhysical(true);
+
+            BookEntity source = createBook(2L);
+            source.setIsPhysical(true);
+
+            when(bookRepository.findByIdWithBookFiles(1L)).thenReturn(Optional.of(target));
+            when(bookRepository.findByIdWithBookFiles(2L)).thenReturn(Optional.of(source));
+            setupGetUpdatedBookMocks(1L, target);
+
+            assertDoesNotThrow(() -> service.attachBookFiles(1L, List.of(2L), false));
         }
     }
 
@@ -228,6 +253,22 @@ class BookFileAttachmentServiceTest {
             APIException ex = assertThrows(APIException.class,
                     () -> service.attachBookFiles(1L, List.of(2L), false));
             assertTrue(ex.getMessage().contains("no book format files"));
+        }
+
+        @Test
+        @DisplayName("Does not throw when source book has no book format files but is physical")
+        void attachBookFiles_sourcePhysicalNoBookFiles_noThrow() throws IOException {
+            BookEntity target = createBook(1L);
+            createBookFile(10L, target, "target.epub", "sub", true, false);
+
+            BookEntity source = createBook(2L);
+            source.setIsPhysical(true);
+
+            when(bookRepository.findByIdWithBookFiles(1L)).thenReturn(Optional.of(target));
+            when(bookRepository.findByIdWithBookFiles(2L)).thenReturn(Optional.of(source));
+            setupGetUpdatedBookMocks(1L, target);
+
+            assertDoesNotThrow(() -> service.attachBookFiles(1L, List.of(2L), false));
         }
 
         @Test
@@ -439,7 +480,8 @@ class BookFileAttachmentServiceTest {
 
             service.attachBookFiles(1L, List.of(2L), true);
 
-            assertFalse(Files.exists(tempDir.resolve("source_dir/source.pdf")), "Source file should no longer be at original location");
+            assertFalse(Files.exists(tempDir.resolve("source_dir/source.pdf")),
+                    "Source file should no longer be at original location");
             assertTrue(Files.exists(tempDir.resolve("target_dir/target.pdf")),
                     "Source file should be moved to target directory with base name");
         }

@@ -65,37 +65,48 @@ public class BookFileAttachmentService {
         BookFileEntity targetPrimaryFile = targetBook.getBookFiles().stream()
                 .filter(BookFileEntity::isBookFormat)
                 .findFirst()
-                .orElseThrow(() -> ApiError.GENERIC_BAD_REQUEST.createException("Target book has no primary file"));
+                .orElse(null);
+
+        if (targetPrimaryFile == null && (targetBook.getIsPhysical() == null || !targetBook.getIsPhysical())) {
+            throw ApiError.GENERIC_BAD_REQUEST.createException("Target book has no primary file");
+        }
 
         for (BookEntity sourceBook : sourceBooks) {
             if (!targetBook.getLibrary().getId().equals(sourceBook.getLibrary().getId())) {
-                throw ApiError.GENERIC_BAD_REQUEST.createException("Source book " + sourceBook.getId() + " must be in the same library as target");
+                throw ApiError.GENERIC_BAD_REQUEST.createException(
+                        "Source book " + sourceBook.getId() + " must be in the same library as target");
             }
 
             List<BookFileEntity> sourceBookFiles = sourceBook.getBookFiles().stream()
                     .filter(BookFileEntity::isBookFormat)
                     .collect(Collectors.toList());
 
-            if (sourceBookFiles.isEmpty()) {
-                throw ApiError.GENERIC_BAD_REQUEST.createException("Source book " + sourceBook.getId() + " has no book format files to attach");
+            if (sourceBookFiles.isEmpty() && (sourceBook.getIsPhysical() == null || !sourceBook.getIsPhysical())) {
+                throw ApiError.GENERIC_BAD_REQUEST
+                        .createException("Source book " + sourceBook.getId() + " has no book format files to attach");
             }
 
             for (BookFileEntity fileToMove : sourceBookFiles) {
                 if (fileToMove.isFolderBased()) {
-                    throw ApiError.GENERIC_BAD_REQUEST.createException("Source book " + sourceBook.getId() + " contains a folder-based audiobook. Folder-based books cannot be attached.");
+                    throw ApiError.GENERIC_BAD_REQUEST.createException("Source book " + sourceBook.getId()
+                            + " contains a folder-based audiobook. Folder-based books cannot be attached.");
                 }
 
                 Path sourceFilePath = fileToMove.getFullFilePath();
                 if (!Files.exists(sourceFilePath)) {
                     throw ApiError.GENERIC_BAD_REQUEST.createException(
                             "Source file not found at expected location: " + sourceFilePath +
-                            ". The file may have been moved, deleted, or the database record is out of sync.");
+                                    ". The file may have been moved, deleted, or the database record is out of sync.");
                 }
             }
         }
 
+        long totalSourceFiles = sourceBooks.stream()
+                .mapToLong(sb -> sb.getBookFiles().stream().filter(BookFileEntity::isBookFormat).count())
+                .sum();
+
         List<Long> deletedSourceBookIds;
-        if (moveFiles) {
+        if (moveFiles && totalSourceFiles > 0) {
             deletedSourceBookIds = attachWithFileMove(targetBook, sourceBooks, targetPrimaryFile);
         } else {
             deletedSourceBookIds = attachWithoutFileMove(targetBook, sourceBooks);
@@ -125,7 +136,8 @@ public class BookFileAttachmentService {
                             .setParameter("fileIds", bookFileIds)
                             .executeUpdate();
                 } else {
-                    Path sourceLibraryRoot = Paths.get(sourceBook.getLibraryPath().getPath()).toAbsolutePath().normalize();
+                    Path sourceLibraryRoot = Paths.get(sourceBook.getLibraryPath().getPath()).toAbsolutePath()
+                            .normalize();
                     for (BookFileEntity file : bookFormatFiles) {
                         Path fileDir = sourceLibraryRoot.resolve(file.getFileSubPath()).normalize();
                         String newSubPath = fileDir.equals(targetLibraryRoot)
@@ -159,15 +171,16 @@ public class BookFileAttachmentService {
     }
 
     private List<Long> attachWithFileMove(BookEntity targetBook, List<BookEntity> sourceBooks,
-                                          BookFileEntity targetPrimaryFile) {
+            BookFileEntity targetPrimaryFile) {
         String fileNamingPattern = fileMoveHelper.getFileNamingPattern(targetBook.getLibrary());
-        String patternResolvedPath = PathPatternResolver.resolvePattern(targetBook, targetPrimaryFile, fileNamingPattern);
+        String patternResolvedPath = PathPatternResolver.resolvePattern(targetBook, targetPrimaryFile,
+                fileNamingPattern);
         Path libraryRootPath = Paths.get(targetBook.getLibraryPath().getPath());
         Path patternFullPath = libraryRootPath.resolve(patternResolvedPath);
 
-        Path actualPrimaryFilePath = targetPrimaryFile.getFullFilePath();
-        boolean primaryFileAtPatternLocation = Files.exists(patternFullPath) &&
-                patternFullPath.normalize().equals(actualPrimaryFilePath.normalize());
+        Path actualPrimaryFilePath = targetPrimaryFile != null ? targetPrimaryFile.getFullFilePath() : null;
+        boolean primaryFileAtPatternLocation = targetPrimaryFile == null || (Files.exists(patternFullPath) &&
+                patternFullPath.normalize().equals(actualPrimaryFilePath.normalize()));
 
         Path targetDirectory = patternFullPath.getParent();
         if (targetDirectory == null) {
@@ -181,10 +194,10 @@ public class BookFileAttachmentService {
         int lastDot = patternFileName.lastIndexOf('.');
         String baseFileName = lastDot > 0 ? patternFileName.substring(0, lastDot) : patternFileName;
 
-        if (!primaryFileAtPatternLocation && !Files.exists(actualPrimaryFilePath)) {
+        if (targetPrimaryFile != null && !primaryFileAtPatternLocation && !Files.exists(actualPrimaryFilePath)) {
             throw ApiError.GENERIC_BAD_REQUEST.createException(
                     "Target book's primary file not found at expected location: " + actualPrimaryFilePath +
-                    ". Please ensure the target book's files exist before attaching files.");
+                            ". Please ensure the target book's files exist before attaching files.");
         }
 
         Long libraryId = targetBook.getLibrary().getId();
@@ -222,7 +235,8 @@ public class BookFileAttachmentService {
                 try {
                     Files.createDirectories(targetDirectory);
                 } catch (IOException e) {
-                    throw ApiError.INTERNAL_SERVER_ERROR.createException("Failed to create target directory: " + e.getMessage());
+                    throw ApiError.INTERNAL_SERVER_ERROR
+                            .createException("Failed to create target directory: " + e.getMessage());
                 }
 
                 for (BookFileEntity existingFile : targetBook.getBookFiles()) {
@@ -232,7 +246,8 @@ public class BookFileAttachmentService {
                         continue;
                     }
 
-                    String resolvedPath = PathPatternResolver.resolvePattern(targetBook, existingFile, fileNamingPattern);
+                    String resolvedPath = PathPatternResolver.resolvePattern(targetBook, existingFile,
+                            fileNamingPattern);
                     String newFileName = Paths.get(resolvedPath).getFileName().toString();
                     newFileName = resolveFilenameConflict(targetDirectory, newFileName);
                     Path destinationPath = targetDirectory.resolve(newFileName);
@@ -398,7 +413,8 @@ public class BookFileAttachmentService {
         } while (Files.exists(targetPath) && counter < 1000);
 
         if (counter >= 1000) {
-            throw ApiError.GENERIC_BAD_REQUEST.createException("Could not resolve filename conflict for: " + originalFileName);
+            throw ApiError.GENERIC_BAD_REQUEST
+                    .createException("Could not resolve filename conflict for: " + originalFileName);
         }
 
         return newFileName;
