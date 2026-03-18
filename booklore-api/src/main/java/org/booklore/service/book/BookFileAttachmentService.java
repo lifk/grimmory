@@ -117,15 +117,22 @@ public class BookFileAttachmentService {
 
     private List<Long> attachWithoutFileMove(BookEntity targetBook, List<BookEntity> sourceBooks) {
         List<Long> sourceBooksToDeleteIds = new ArrayList<>();
-        Path targetLibraryRoot = Paths.get(targetBook.getLibraryPath().getPath()).toAbsolutePath().normalize();
 
         for (BookEntity sourceBook : sourceBooks) {
-            boolean sameLibraryPath = sourceBook.getLibraryPath().getId().equals(targetBook.getLibraryPath().getId());
             List<BookFileEntity> bookFormatFiles = sourceBook.getBookFiles().stream()
                     .filter(BookFileEntity::isBookFormat)
                     .toList();
 
             if (!bookFormatFiles.isEmpty()) {
+                if (targetBook.getLibraryPath() == null) {
+                    targetBook.setLibraryPath(sourceBook.getLibraryPath());
+                    targetBook.setIsPhysical(false);
+                }
+
+                Path targetLibraryRoot = Paths.get(targetBook.getLibraryPath().getPath()).toAbsolutePath().normalize();
+                boolean sameLibraryPath = sourceBook.getLibraryPath() != null &&
+                        sourceBook.getLibraryPath().getId().equals(targetBook.getLibraryPath().getId());
+
                 if (sameLibraryPath) {
                     List<Long> bookFileIds = bookFormatFiles.stream()
                             .map(BookFileEntity::getId)
@@ -172,6 +179,22 @@ public class BookFileAttachmentService {
 
     private List<Long> attachWithFileMove(BookEntity targetBook, List<BookEntity> sourceBooks,
             BookFileEntity targetPrimaryFile) {
+
+        if (targetBook.getLibraryPath() == null) {
+            LibraryPathEntity newLibPath = sourceBooks.stream()
+                    .map(BookEntity::getLibraryPath)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(targetBook.getLibrary().getLibraryPaths().stream().findFirst().orElse(null));
+            if (newLibPath != null) {
+                targetBook.setLibraryPath(newLibPath);
+                targetBook.setIsPhysical(false);
+            } else {
+                throw ApiError.GENERIC_BAD_REQUEST
+                        .createException("Target book has no library path to store incoming files");
+            }
+        }
+
         String fileNamingPattern = fileMoveHelper.getFileNamingPattern(targetBook.getLibrary());
         String patternResolvedPath = PathPatternResolver.resolvePattern(targetBook, targetPrimaryFile,
                 fileNamingPattern);
