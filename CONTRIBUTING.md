@@ -95,6 +95,7 @@ booklore/
 └── local/                   # Local development helpers
 ```
 
+
 ### Option 1: Docker Development Stack (Recommended)
 
 The fastest way to get a working environment. No local toolchain required.
