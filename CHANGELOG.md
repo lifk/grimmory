@@ -1,3 +1,9 @@
+## [2.3.2](https://github.com/lifk/grimmory/compare/v2.3.1...v2.3.2) (2026-04-16)
+
+### Bug Fixes
+
+* remove docker registry cache push ([8c27282](https://github.com/lifk/grimmory/commit/8c27282c36cb3792dbfe81e82a803be989ef5270))
+
 ## [2.3.1](https://github.com/lifk/grimmory/compare/v2.3.0...v2.3.1) (2026-04-16)
 
 ### Bug Fixes
