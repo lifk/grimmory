@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/lifk/grimmory/compare/v2.3.0...v2.3.1) (2026-04-16)
+
+### Bug Fixes
+
+* correct pipeline configurations for fork and local JAR build ([50f12f9](https://github.com/lifk/grimmory/commit/50f12f90ba6fb763007ab0eec43cac64669ec513))
+* tag release update ([8f52b04](https://github.com/lifk/grimmory/commit/8f52b04ba7c42e56f5704437bfdfb8637280df7c))
+
 ## [2.3.0](https://github.com/grimmory-tools/grimmory/compare/v2.2.6...v2.3.0) (2026-03-21)
 
 ### Features
