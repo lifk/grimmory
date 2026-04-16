@@ -1,5 +1,5 @@
 module.exports = {
-  repositoryUrl: "https://github.com/grimmory-tools/grimmory.git",
+  repositoryUrl: process.env.GITHUB_REPOSITORY ? `https://github.com/${process.env.GITHUB_REPOSITORY}.git` : "https://github.com/grimmory-tools/grimmory.git",
   branches: ["main"],
   tagFormat: "v${version}",
   plugins: [
